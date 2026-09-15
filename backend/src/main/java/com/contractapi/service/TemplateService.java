@@ -17,6 +17,9 @@ import com.contractapi.utils.VariableValidator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.springframework.dao.ConcurrencyFailureException;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -59,7 +62,9 @@ public class TemplateService {
     return fillVersionInfo(template);
   }
 
-  /** 修改模板：不改动任何历史版本，追加一个 version_no 递增的新草稿版本 */
+  /** 修改模板：不改动任何历史版本，追加一个 version_no 递增的新草稿版本。
+   *  并发修改同一模板时，uk_template_version 唯一约束只放行一个请求，
+   *  其余请求收到明确的 VERSION_CONFLICT(409)，而不是内部错误。 */
   public TemplateVersion createVersion(Long templateId, CreateVersionRequest request) {
     requireTemplate(templateId);
     validateVersionPayload(request.content(), request.variables());
@@ -72,13 +77,21 @@ public class TemplateService {
         .stream().findFirst().map(o -> (Integer) o).orElse(0);
 
     TemplateVersion version = buildVersion(templateId, maxVersionNo + 1, request.content(), request.variables());
-    versionMapper.insert(version);
+    try {
+      versionMapper.insert(version);
+    } catch (DataIntegrityViolationException | ConcurrencyFailureException e) {
+      throw new ApiException(ErrorCode.VERSION_CONFLICT,
+          "模板 " + templateId + " 存在并发修改，版本号冲突，请重试", HttpStatus.CONFLICT);
+    }
     return version;
   }
 
   /**
    * 发布指定版本：同一事务内先把当前已发布版本归档，再发布目标版本。
    * 仅草稿可发布；已发布/已归档版本再次发布会以 VERSION_IMMUTABLE 失败。
+   * 并发发布时 uk_published_guard 唯一约束只放行一个请求；落败方收到明确的
+   * PUBLISH_CONFLICT(409)，且整个事务回滚——不会留下"旧版本已归档、
+   * 新版本未发布"的中间状态。
    */
   @Transactional
   public TemplateVersion publish(Long templateId, Integer versionNo) {
@@ -90,17 +103,22 @@ public class TemplateService {
     }
 
     TemplateVersion currentPublished = findPublished(templateId);
-    if (currentPublished != null) {
-      versionMapper.update(null, new LambdaUpdateWrapper<TemplateVersion>()
-          .eq(TemplateVersion::getId, currentPublished.getId())
-          .set(TemplateVersion::getStatus, TemplateVersionStatus.ARCHIVED.name())
-          .set(TemplateVersion::getPublishedGuard, null));
-    }
+    try {
+      if (currentPublished != null) {
+        versionMapper.update(null, new LambdaUpdateWrapper<TemplateVersion>()
+            .eq(TemplateVersion::getId, currentPublished.getId())
+            .set(TemplateVersion::getStatus, TemplateVersionStatus.ARCHIVED.name())
+            .set(TemplateVersion::getPublishedGuard, null));
+      }
 
-    target.setStatus(TemplateVersionStatus.PUBLISHED.name());
-    target.setPublishedGuard(templateId);
-    target.setPublishedAt(java.time.LocalDateTime.now());
-    versionMapper.updateById(target);
+      target.setStatus(TemplateVersionStatus.PUBLISHED.name());
+      target.setPublishedGuard(templateId);
+      target.setPublishedAt(java.time.LocalDateTime.now());
+      versionMapper.updateById(target);
+    } catch (DataIntegrityViolationException | ConcurrencyFailureException e) {
+      throw new ApiException(ErrorCode.PUBLISH_CONFLICT,
+          "模板 " + templateId + " 存在并发发布，本次发布已被拒绝，请刷新后重试", HttpStatus.CONFLICT);
+    }
     return target;
   }
 

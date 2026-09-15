@@ -23,7 +23,7 @@ public class GlobalExceptionHandler {
       body.put("details", ex.getDetails());
     }
     body.put("timestamp", Instant.now().toString());
-    return ResponseEntity.badRequest().body(body);
+    return ResponseEntity.status(ex.getStatus()).body(body);
   }
 
   @ExceptionHandler(Exception.class)

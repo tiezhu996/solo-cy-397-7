@@ -17,5 +17,9 @@ public final class ErrorCode {
   public static final String UNDECLARED_VARIABLES = "UNDECLARED_VARIABLES";
   /** 渲染后合同仍残留占位符，禁止生成 */
   public static final String UNRESOLVED_PLACEHOLDERS = "UNRESOLVED_PLACEHOLDERS";
+  /** 并发修改同一模板导致版本号冲突，请求方应重试 */
+  public static final String VERSION_CONFLICT = "VERSION_CONFLICT";
+  /** 并发发布同一模板：仅一个请求成功，落败方收到此错误 */
+  public static final String PUBLISH_CONFLICT = "PUBLISH_CONFLICT";
   private ErrorCode() {}
 }
