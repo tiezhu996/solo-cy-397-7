@@ -5,6 +5,10 @@ spring:
     password: ${MYSQL_PASSWORD:contract_pass}
   jackson:
     default-property-inclusion: non_null
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema.sql
 mybatis-plus:
   configuration:
     map-underscore-to-camel-case: true

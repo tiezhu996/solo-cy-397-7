@@ -10,5 +10,5 @@ import org.springframework.web.bind.annotation.*;
 public class KnowledgeController {
   private final KnowledgeService service;
   public KnowledgeController(KnowledgeService service) { this.service = service; }
-  @GetMapping public List<LegalFaq> search(@RequestParam(required = false) String keyword) { return service.search(keyword); }
+  @GetMapping public List<LegalFaq> search(@RequestParam(name = "keyword", required = false) String keyword) { return service.search(keyword); }
 }

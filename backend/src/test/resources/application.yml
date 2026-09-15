@@ -1,0 +1,19 @@
+# 测试环境配置：测试类路径下的 application.yml 会整体替换 main 下的同名文件。
+# 使用内存 H2（MySQL 兼容模式），schema.sql 随上下文启动幂等执行。
+spring:
+  datasource:
+    url: jdbc:h2:mem:contractapi-test;MODE=MySQL;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jackson:
+    default-property-inclusion: non_null
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema.sql
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+app:
+  jwt-secret: test_secret

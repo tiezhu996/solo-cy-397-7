@@ -1,6 +1,7 @@
 package com.contractapi.exception;
 
 import java.time.Instant;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,7 +15,15 @@ public class GlobalExceptionHandler {
 
   @ExceptionHandler(ApiException.class)
   public ResponseEntity<Map<String, Object>> handleApi(ApiException ex) {
-    return ResponseEntity.badRequest().body(Map.of("success", false, "code", ex.getCode(), "message", ex.getMessage(), "timestamp", Instant.now().toString()));
+    Map<String, Object> body = new LinkedHashMap<>();
+    body.put("success", false);
+    body.put("code", ex.getCode());
+    body.put("message", ex.getMessage());
+    if (ex.getDetails() != null) {
+      body.put("details", ex.getDetails());
+    }
+    body.put("timestamp", Instant.now().toString());
+    return ResponseEntity.badRequest().body(body);
   }
 
   @ExceptionHandler(Exception.class)

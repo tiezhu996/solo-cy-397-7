@@ -1,5 +1,10 @@
--- contractapi 数据库初始化脚本（MySQL 容器首次启动时执行一次）
--- 与 backend/src/main/resources/schema.sql 保持一致；后端启动时也会幂等执行 schema.sql。
+-- 合同模板版本管理 schema（幂等，随后端启动执行，保证表结构存在）
+-- 设计要点：
+-- 1. 模板每次修改生成一行新的 template_versions，版本行创建后不再更新内容（不可变）。
+-- 2. published_guard = 已发布版本的 template_id（其余为 NULL），配合唯一索引
+--    在数据库层面保证同一模板最多一个已发布版本（MySQL/H2 唯一索引均允许多个 NULL）。
+-- 3. contracts 固化生成时的 template_version_id / version_no / 渲染后内容 / 提交变量，
+--    历史合同永远能对应回它被生成时的版本快照。
 
 CREATE TABLE IF NOT EXISTS contract_templates (
   id BIGINT PRIMARY KEY AUTO_INCREMENT,
@@ -52,19 +57,3 @@ CREATE TABLE IF NOT EXISTS legal_faq (
   question VARCHAR(200),
   answer TEXT
 );
-
--- 种子数据：一个已发布的租赁合同模板（v1）与常见法律 FAQ
-INSERT INTO contract_templates (id, type, title)
-SELECT 1, 'LEASE', '租赁合同'
-WHERE NOT EXISTS (SELECT 1 FROM contract_templates WHERE id = 1);
-
-INSERT INTO template_versions (template_id, version_no, content, variables, status, published_guard, published_at)
-SELECT 1, 1,
-  '租赁合同\n\n甲方（出租方）：${partyA}\n乙方（承租方）：${partyB}\n租金：${amount} 元/月\n租赁期限：${startDate} 至 ${endDate}\n\n双方签字后生效。',
-  '[{"name":"partyA","label":"甲方","required":true},{"name":"partyB","label":"乙方","required":true},{"name":"amount","label":"租金","required":true},{"name":"startDate","label":"起始日期","required":true},{"name":"endDate","label":"结束日期","required":true}]',
-  'PUBLISHED', 1, NOW()
-WHERE NOT EXISTS (SELECT 1 FROM template_versions WHERE template_id = 1 AND version_no = 1);
-
-INSERT INTO legal_faq (category, question, answer)
-SELECT '合同纠纷', '合同逾期未签署怎么办', '可先发出书面催告并保存沟通证据。'
-WHERE NOT EXISTS (SELECT 1 FROM legal_faq);
