@@ -15,6 +15,8 @@ import com.contractapi.utils.VariableValidator;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.springframework.stereotype.Service;
@@ -55,11 +57,21 @@ public class ContractService {
     validator.validateProvided(definitions, provided);
 
     String content = renderer.render(version.getContent(), provided);
+    // 生成前兜底：未填充的合法占位符与非法片段（如历史遗留的未闭合/带空格写法）都不得留在合同里
     List<String> leftover = renderer.extractPlaceholders(content).stream().sorted().toList();
-    if (!leftover.isEmpty()) {
+    List<String> malformed = renderer.findMalformedPlaceholders(content);
+    if (!leftover.isEmpty() || !malformed.isEmpty()) {
+      Map<String, Object> details = new LinkedHashMap<>();
+      if (!leftover.isEmpty()) {
+        details.put("placeholders", leftover);
+      }
+      if (!malformed.isEmpty()) {
+        details.put("malformed", malformed);
+      }
+      List<String> all = new ArrayList<>(leftover);
+      all.addAll(malformed);
       throw new ApiException(ErrorCode.UNRESOLVED_PLACEHOLDERS,
-          "合同存在未填充的占位符，禁止生成: " + leftover,
-          Map.of("placeholders", leftover));
+          "合同存在未填充的占位符或非法片段，禁止生成: " + all, details);
     }
 
     Contract contract = new Contract();

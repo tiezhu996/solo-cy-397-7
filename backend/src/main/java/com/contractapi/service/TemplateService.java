@@ -172,12 +172,20 @@ public class TemplateService {
     return template;
   }
 
-  /** 校验一次版本提交：内容非空、变量定义合法、内容中的占位符必须全部已声明 */
+  /** 校验一次版本提交：内容非空、变量定义合法、无非法占位符片段、内容中的占位符必须全部已声明 */
   private void validateVersionPayload(String content, List<VariableDefinition> variables) {
     if (content == null || content.isBlank()) {
       throw new ApiException(ErrorCode.VALIDATION_FAILED, "模板内容不能为空");
     }
     validator.validateDefinitions(variables);
+
+    // 未闭合、带空格等非法占位符片段：录入即拒绝，不让"永远填不上"的模板入库
+    List<String> malformed = renderer.findMalformedPlaceholders(content);
+    if (!malformed.isEmpty()) {
+      throw new ApiException(ErrorCode.MALFORMED_PLACEHOLDER,
+          "模板内容包含未闭合或格式非法的占位符: " + malformed,
+          Map.of("fragments", malformed));
+    }
 
     Set<String> placeholders = renderer.extractPlaceholders(content);
     List<String> declared = (variables == null ? List.<VariableDefinition>of() : variables)

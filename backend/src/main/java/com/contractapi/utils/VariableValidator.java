@@ -46,7 +46,7 @@ public class VariableValidator {
     }
   }
 
-  /** 校验变量定义本身合法：名称非空、不重复 */
+  /** 校验变量定义本身合法：名称非空、符合占位符变量名规则、不重复 */
   public void validateDefinitions(List<VariableDefinition> definitions) {
     if (definitions == null) {
       return;
@@ -56,6 +56,11 @@ public class VariableValidator {
     for (VariableDefinition definition : definitions) {
       if (definition == null || definition.name() == null || definition.name().isBlank()) {
         throw new ApiException(ErrorCode.VALIDATION_FAILED, "变量定义中存在空名称");
+      }
+      if (!TemplateRenderer.VARIABLE_NAME.matcher(definition.name()).matches()) {
+        throw new ApiException(ErrorCode.VALIDATION_FAILED,
+            "变量名不能包含空白或花括号: " + definition.name(),
+            Map.of("invalid", definition.name()));
       }
       if (!seen.add(definition.name())) {
         duplicated.add(definition.name());

@@ -11,6 +11,8 @@ public final class ErrorCode {
   public static final String VERSION_IMMUTABLE = "VERSION_IMMUTABLE";
   /** 模板内容中出现了未在变量定义里声明的占位符 */
   public static final String UNDECLARED_PLACEHOLDER = "UNDECLARED_PLACEHOLDER";
+  /** 模板内容中出现未闭合、带空格等格式非法的占位符片段 */
+  public static final String MALFORMED_PLACEHOLDER = "MALFORMED_PLACEHOLDER";
   /** 生成合同时缺少必填变量 */
   public static final String MISSING_REQUIRED_VARIABLES = "MISSING_REQUIRED_VARIABLES";
   /** 生成合同时传入了版本未声明的变量 */
